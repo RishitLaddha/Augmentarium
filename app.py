@@ -2,8 +2,9 @@ import os
 import io
 import uuid
 import zipfile
+from PIL import Image
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, send_file, abort
+from flask import Flask, render_template, request, redirect, url_for, send_file, abort, jsonify
 from werkzeug.utils import secure_filename
 
 from utils.image_ops import (
@@ -47,6 +48,10 @@ def _zip_dir(dir_path: str) -> bytes:
                     zf.write(full, arcname=rel)
     memf.seek(0)
     return memf.read()
+
+
+def _orig_path_for(token: str) -> str:
+    return os.path.join(OUTPUT_BASE, token, "original.png")
 
 
 @app.route("/", methods=["GET"])
@@ -119,6 +124,40 @@ def add_header(resp):
     # no aggressive caching in dev
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
+
+@app.route("/lab/<token>", methods=["GET"])
+def lab(token):
+    orig = _orig_path_for(token)
+    if not os.path.exists(orig):
+        abort(404)
+    return render_template(
+        "lab.html",
+        app_name=APP_NAME,
+        token=token,
+        original_filename="original.png",
+    )
+
+
+@app.route("/api/preview/<token>", methods=["POST"])
+def api_preview(token):
+    orig = _orig_path_for(token)
+    if not os.path.exists(orig):
+        abort(404)
+    data = request.get_json(force=True, silent=True) or {}
+    key = (data.get("key") or "").strip()
+    params = data.get("params") or {}
+    try:
+        img = Image.open(orig).convert("RGB")
+        from utils.image_ops import parametric_apply  # lazy import
+        out = parametric_apply(img, key, params)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    buf = io.BytesIO()
+    out.save(buf, format="PNG", optimize=True)
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png")
 
 
 if __name__ == "__main__":

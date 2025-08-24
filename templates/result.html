@@ -24,7 +24,10 @@
 
   <main class="container mx-auto px-4">
     <div class="max-w-5xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
-      <a href="{{ url_for('index') }}" class="rounded-xl bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold">Try another</a>
+      <div class="flex items-center gap-3">
+        <a href="{{ url_for('index') }}" class="rounded-xl bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold">Try another</a>
+        <a href="{{ url_for('lab', token=token) }}" class="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold shadow-lg shadow-indigo-900/30">Open Interactive Lab</a>
+      </div>
       <a href="{{ url_for('download_zip', token=token) }}" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold shadow-lg shadow-emerald-900/30">Download All</a>
     </div>
 

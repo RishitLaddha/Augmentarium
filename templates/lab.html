@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ app_name }} • Interactive Lab</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.06); }
+    body {
+      background: radial-gradient(1200px 800px at 20% 10%, #c7d2fe 0%, transparent 50%),
+                  radial-gradient(900px 700px at 90% 30%, #fecdd3 0%, transparent 50%),
+                  radial-gradient(800px 600px at 60% 80%, #bbf7d0 0%, transparent 50%),
+                  #0b1020;
+    }
+    input[type="range"] { width: 100%; }
+    .label-chip { background: rgba(15,23,42,.8); }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100">
+  <header class="py-8 text-center">
+    <h1 class="text-3xl md:text-4xl font-bold tracking-tight">{{ app_name }} – Interactive Lab</h1>
+    <p class="mt-2 text-slate-300">Token: <span class="font-mono bg-black/30 px-2 py-0.5 rounded">{{ token }}</span></p>
+  </header>
+
+  <main class="container mx-auto px-4">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-6xl mx-auto">
+      <!-- Left: images -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="relative rounded-2xl ring-1 ring-white/10 glass overflow-hidden">
+          <img src="{{ url_for('static', filename='outputs/' + token + '/' + original_filename) }}" alt="Original" class="w-full h-auto object-contain" id="origImg">
+          <div class="absolute top-3 left-3 rounded-lg label-chip px-2.5 py-1 text-xs font-semibold">Original</div>
+        </div>
+        <div class="relative rounded-2xl ring-1 ring-white/10 glass overflow-hidden">
+          <img src="{{ url_for('static', filename='outputs/' + token + '/' + original_filename) }}" alt="Preview" class="w-full h-auto object-contain" id="previewImg">
+          <div class="absolute top-3 left-3 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold" id="activeLabel">Preview</div>
+        </div>
+      </div>
+
+      <!-- Right: controls -->
+      <div class="lg:col-span-5 rounded-2xl ring-1 ring-white/10 glass p-5">
+        <div class="mb-4">
+          <label class="block text-sm mb-2 text-slate-200">Choose transform</label>
+          <select id="augKey" class="w-full rounded-xl bg-slate-800 px-3 py-2 text-sm">
+            <option value="rotate">Rotate</option>
+            <option value="translate">Translate</option>
+            <option value="zoom">Zoom (center crop)</option>
+            <option value="brightness">Brightness</option>
+            <option value="contrast">Contrast</option>
+            <option value="saturation">Saturation</option>
+            <option value="hue">Hue Shift</option>
+            <option value="blur">Gaussian Blur</option>
+            <option value="unsharp">Unsharp Mask</option>
+            <option value="posterize">Posterize</option>
+          </select>
+        </div>
+
+        <!-- Controls container; each block shows/hides depending on selection -->
+        <div id="controls" class="space-y-5">
+          <div data-for="rotate">
+            <div class="flex justify-between text-xs text-slate-300"><span>Angle</span><span id="val-angle">15°</span></div>
+            <input id="angle" type="range" min="-180" max="180" value="15" step="1">
+          </div>
+
+          <div data-for="translate" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>dx (%)</span><span id="val-dx">8%</span></div>
+            <input id="dx" type="range" min="-20" max="20" value="8" step="1">
+            <div class="flex justify-between text-xs text-slate-300 mt-2"><span>dy (%)</span><span id="val-dy">5%</span></div>
+            <input id="dy" type="range" min="-20" max="20" value="5" step="1">
+          </div>
+
+          <div data-for="zoom" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Crop ratio</span><span id="val-ratio">85%</span></div>
+            <input id="ratio" type="range" min="60" max="100" value="85" step="1">
+          </div>
+
+          <div data-for="brightness" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Scale</span><span id="val-bright">1.20×</span></div>
+            <input id="bright" type="range" min="50" max="150" value="120" step="1">
+          </div>
+
+          <div data-for="contrast" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Scale</span><span id="val-contrast">1.20×</span></div>
+            <input id="contrast" type="range" min="50" max="150" value="120" step="1">
+          </div>
+
+          <div data-for="saturation" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Scale</span><span id="val-sat">1.25×</span></div>
+            <input id="sat" type="range" min="50" max="180" value="125" step="1">
+          </div>
+
+          <div data-for="hue" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Degrees</span><span id="val-hue">12°</span></div>
+            <input id="hue" type="range" min="-45" max="45" value="12" step="1">
+          </div>
+
+          <div data-for="blur" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Radius</span><span id="val-blur">1.2</span></div>
+            <input id="blur" type="range" min="0" max="3" value="1.2" step="0.1">
+          </div>
+
+          <div data-for="unsharp" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Percent</span><span id="val-us-p">150%</span></div>
+            <input id="us_percent" type="range" min="0" max="300" value="150" step="5">
+            <div class="flex justify-between text-xs text-slate-300 mt-2"><span>Radius</span><span id="val-us-r">2.0</span></div>
+            <input id="us_radius" type="range" min="0" max="5" value="2" step="0.1">
+            <div class="flex justify-between text-xs text-slate-300 mt-2"><span>Threshold</span><span id="val-us-t">3</span></div>
+            <input id="us_threshold" type="range" min="0" max="10" value="3" step="1">
+          </div>
+
+          <div data-for="posterize" class="hidden">
+            <div class="flex justify-between text-xs text-slate-300"><span>Bits per channel</span><span id="val-bits">4</span></div>
+            <input id="bits" type="range" min="2" max="8" value="4" step="1">
+          </div>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button id="resetBtn" class="rounded-xl bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold">Reset</button>
+            <button id="applyBtn" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold">Apply</button>
+          </div>
+
+          <div class="mt-6 rounded-xl bg-black/30 ring-1 ring-white/10 p-3 text-sm text-slate-200" id="eduBox">
+            <div class="font-semibold mb-1">How it works</div>
+            <div id="eduText">Rotation rotates the image by an angle and re-crops to the original frame (<span class="font-mono">x'</span>, <span class="font-mono">y'</span> from a 2D rotation matrix). Use it to simulate tilted cameras.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="mt-16 mb-8 text-center text-slate-400 text-xs">
+    Built with Flask + Pillow + NumPy
+  </footer>
+
+  <script>
+    const token = "{{ token }}";
+    const augKeyEl = document.getElementById('augKey');
+    const controls = document.querySelectorAll('#controls [data-for]');
+    const previewImg = document.getElementById('previewImg');
+    const activeLabel = document.getElementById('activeLabel');
+    const eduText = document.getElementById('eduText');
+
+    const edu = {
+      rotate: "Rotation applies a 2D rotation matrix around the center and crops back to the original frame. Great to simulate camera tilt.",
+      translate: "Translation shifts pixels by dx, dy. Use it to mimic subject drift or framing differences.",
+      zoom: "Center crop then resize back: mimics zoom-in (loss of border context) while keeping output size constant.",
+      brightness: "Brightness scales luminance (Y). Higher values lighten the image; lower values darken.",
+      contrast: "Contrast stretches or squeezes differences around mid-tones. Higher contrast adds punch; lower washes out.",
+      saturation: "Saturation scales the S channel in HSV. Higher values intensify colors; lower trends toward grayscale.",
+      hue: "Hue shifts rotate colors around the HSV color wheel without changing brightness.",
+      blur: "Gaussian blur removes high-frequency detail to simulate out-of-focus or motion blur.",
+      unsharp: "Unsharp mask boosts edges by subtracting a blurred version then adding it back (controlled by percent/radius/threshold).",
+      posterize: "Posterize reduces the number of levels per channel, producing flat, stylized color bands."
+    };
+
+    function showOnly(key) {
+      controls.forEach(c => c.classList.toggle('hidden', c.getAttribute('data-for') !== key));
+      activeLabel.textContent = key[0].toUpperCase() + key.slice(1);
+      eduText.textContent = edu[key] || "";
+    }
+
+    function paramsFor(key) {
+      switch (key) {
+        case 'rotate':   return { angle: parseFloat(document.getElementById('angle').value) };
+        case 'translate':return { dx: parseFloat(document.getElementById('dx').value), dy: parseFloat(document.getElementById('dy').value) };
+        case 'zoom':     return { ratio: parseFloat(document.getElementById('ratio').value) };
+        case 'brightness':return { scale: parseFloat(document.getElementById('bright').value) / 100.0 };
+        case 'contrast': return { scale: parseFloat(document.getElementById('contrast').value) / 100.0 };
+        case 'saturation':return { scale: parseFloat(document.getElementById('sat').value) / 100.0 };
+        case 'hue':      return { deg: parseFloat(document.getElementById('hue').value) };
+        case 'blur':     return { radius: parseFloat(document.getElementById('blur').value) };
+        case 'unsharp':  return { percent: parseFloat(document.getElementById('us_percent').value), radius: parseFloat(document.getElementById('us_radius').value), threshold: parseFloat(document.getElementById('us_threshold').value) };
+        case 'posterize':return { bits: parseInt(document.getElementById('bits').value) };
+        default:         return {};
+      }
+    }
+
+    function updateLabels() {
+      document.getElementById('val-angle').textContent = document.getElementById('angle').value + "°";
+      document.getElementById('val-dx').textContent = document.getElementById('dx').value + "%";
+      document.getElementById('val-dy').textContent = document.getElementById('dy').value + "%";
+      document.getElementById('val-ratio').textContent = document.getElementById('ratio').value + "%";
+      document.getElementById('val-bright').textContent = (document.getElementById('bright').value/100).toFixed(2) + "×";
+      document.getElementById('val-contrast').textContent = (document.getElementById('contrast').value/100).toFixed(2) + "×";
+      document.getElementById('val-sat').textContent = (document.getElementById('sat').value/100).toFixed(2) + "×";
+      document.getElementById('val-hue').textContent = document.getElementById('hue').value + "°";
+      document.getElementById('val-blur').textContent = document.getElementById('blur').value;
+      document.getElementById('val-us-p').textContent = document.getElementById('us_percent').value + "%";
+      document.getElementById('val-us-r').textContent = document.getElementById('us_radius').value;
+      document.getElementById('val-us-t').textContent = document.getElementById('us_threshold').value;
+    }
+
+    async function renderPreview() {
+      const key = augKeyEl.value;
+      const params = paramsFor(key);
+      const res = await fetch(`/api/preview/${token}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ key, params })
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      previewImg.src = URL.createObjectURL(blob);
+    }
+
+    // Wire up
+    augKeyEl.addEventListener('change', () => { showOnly(augKeyEl.value); updateLabels(); renderPreview(); });
+    document.getElementById('controls').addEventListener('input', () => { updateLabels(); });
+    document.getElementById('applyBtn').addEventListener('click', (e) => { e.preventDefault(); renderPreview(); });
+    document.getElementById('resetBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('angle').value = 15;
+      document.getElementById('dx').value = 8;
+      document.getElementById('dy').value = 5;
+      document.getElementById('ratio').value = 85;
+      document.getElementById('bright').value = 120;
+      document.getElementById('contrast').value = 120;
+      document.getElementById('sat').value = 125;
+      document.getElementById('hue').value = 12;
+      document.getElementById('blur').value = 1.2;
+      document.getElementById('us_percent').value = 150;
+      document.getElementById('us_radius').value = 2;
+      document.getElementById('us_threshold').value = 3;
+      document.getElementById('bits').value = 4;
+      updateLabels();
+      renderPreview();
+    });
+
+    // initial
+    showOnly('rotate');
+    updateLabels();
+    renderPreview();
+  </script>
+</body>
+</html>
