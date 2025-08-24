@@ -1,6 +1,6 @@
 # 🎨 Augmentarium --> One image in. A gallery of augmentations out.
 
-![Augmentarium preview](Augmentarium%demo.png)
+![Augmentarium preview](Augmentarium%20demo.png)
 
 
 Welcome to **Augmentarium** — a tiny, gorgeous web app that turns a single photo into a wall of classic image transforms, then lets you **play with them live** using sliders. 
