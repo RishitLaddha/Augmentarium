@@ -263,27 +263,43 @@ def english_verdict(
     return Verdict(label=label, color=color, hints=[intensity_hint, color_hint, struct_hint, clip_hint, sharp_hint])
 
 
+
 # -------------------------
-# Augmentations (12)
+# Augmentations (lecture-aligned set)
 # -------------------------
 
 def _ensure_size(img: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
-    # Resize to exact target using LANCZOS
     return img.resize(target_size, Image.LANCZOS)
 
-def aug_flip_h(img):  # 1
+def aug_flip_h(img):  # Horizontal Flip
     return ImageOps.mirror(img)
 
-def aug_rotate_15(img):  # 2
+def aug_flip_v(img):  # Vertical Flip
+    return ImageOps.flip(img)
+
+def aug_rotate_45(img):
     w, h = img.size
-    im = img.rotate(15, resample=Image.BICUBIC, expand=True, fillcolor=(0,0,0))
-    # center-crop back to original
+    im = img.rotate(45, resample=Image.BICUBIC, expand=True, fillcolor=(0,0,0))
     W, H = im.size
     left = (W - w) // 2
     top = (H - h) // 2
     return im.crop((left, top, left + w, top + h))
 
-def aug_center_zoom(img):  # 3
+def aug_rotate_90(img):
+    w, h = img.size
+    im = img.rotate(90, resample=Image.BICUBIC, expand=True, fillcolor=(0,0,0))
+    W, H = im.size
+    left = (W - w) // 2
+    top = (H - h) // 2
+    return im.crop((left, top, left + w, top + h))
+
+def aug_translate(img):
+    w, h = img.size
+    dx = int(0.08 * w)
+    dy = int(0.05 * h)
+    return img.transform((w, h), Image.AFFINE, (1, 0, dx, 0, 1, dy), resample=Image.BICUBIC, fillcolor=(0,0,0))
+
+def aug_center_zoom(img):
     w, h = img.size
     crop_ratio = 0.85
     cw, ch = int(w * crop_ratio), int(h * crop_ratio)
@@ -292,90 +308,83 @@ def aug_center_zoom(img):  # 3
     im = img.crop((left, top, left + cw, top + ch))
     return im.resize((w, h), Image.LANCZOS)
 
-def aug_perspective(img):  # 4 mild warp
-    w, h = img.size
-    # four corners slightly perturbed
-    jitter = int(0.05 * min(w, h))
-    src = [(0,0), (w,0), (w,h), (0,h)]
-    dst = [
-        (random.randint(0, jitter), random.randint(0, jitter)),
-        (w - random.randint(0, jitter), random.randint(0, jitter)),
-        (w - random.randint(0, jitter), h - random.randint(0, jitter)),
-        (random.randint(0, jitter), h - random.randint(0, jitter)),
-    ]
-    coeffs = _perspective_coeffs(src, dst)
-    return img.transform((w, h), Image.PERSPECTIVE, coeffs, resample=Image.BICUBIC)
+def aug_grayscale(img):
+    return img.convert("L").convert("RGB")
 
-def _perspective_coeffs(pa, pb):
-    # Solve for perspective transform coefficients
-    # from PIL docs approach
-    import numpy as _np
-    matrix = []
-    for (x, y), (u, v) in zip(pa, pb):
-        matrix.append([x, y, 1, 0, 0, 0, -u*x, -u*y])
-        matrix.append([0, 0, 0, x, y, 1, -v*x, -v*y])
-    A = _np.array(matrix, dtype=float)
-    B = _np.array([u for _, (u, _) in zip(pa, pb)] + [v for _, (_, v) in zip(pa, pb)], dtype=float)
-    res = _np.linalg.lstsq(A, B, rcond=None)[0]
-    return res.tolist()
+def aug_red_channel(img):
+    arr = np.array(img, dtype=np.uint8)
+    out = np.zeros_like(arr)
+    out[..., 0] = arr[..., 0]  # keep R
+    return Image.fromarray(out, mode="RGB")
 
-def aug_brightness(img):  # 5
-    return ImageEnhance.Brightness(img).enhance(1.2)
+def aug_green_channel(img):
+    arr = np.array(img, dtype=np.uint8)
+    out = np.zeros_like(arr)
+    out[..., 1] = arr[..., 1]  # keep G
+    return Image.fromarray(out, mode="RGB")
 
-def aug_contrast(img):  # 6
-    return ImageEnhance.Contrast(img).enhance(1.2)
+def aug_blue_channel(img):
+    arr = np.array(img, dtype=np.uint8)
+    out = np.zeros_like(arr)
+    out[..., 2] = arr[..., 2]  # keep B
+    return Image.fromarray(out, mode="RGB")
 
-def aug_saturation(img):  # 7
-    hsv = np.array(img.convert("HSV"), dtype=np.uint8)
-    s = hsv[..., 1].astype(np.int16)
-    s = np.clip((s * 1.25), 0, 255).astype(np.uint8)
-    hsv[..., 1] = s
-    return Image.fromarray(hsv, mode="HSV").convert("RGB")
-
-def aug_hue_shift(img):  # 8 (+12 deg ≈ +8 on 0..255)
+def aug_hue_shift(img):  # +12°
     hsv = np.array(img.convert("HSV"), dtype=np.uint8)
     h = hsv[..., 0].astype(np.int16)
     h = (h + 8) % 256
     hsv[..., 0] = h.astype(np.uint8)
     return Image.fromarray(hsv, mode="HSV").convert("RGB")
 
-def aug_gaussian_blur(img):  # 9
-    return img.filter(ImageFilter.GaussianBlur(radius=1.2))
+def aug_saturation(img):  # +25%
+    hsv = np.array(img.convert("HSV"), dtype=np.uint8)
+    s = hsv[..., 1].astype(np.int16)
+    s = np.clip(s * 1.25, 0, 255).astype(np.uint8)
+    hsv[..., 1] = s
+    return Image.fromarray(hsv, mode="HSV").convert("RGB")
 
-def aug_jpeg_crunch(img):  # 10
-    buf = io.BytesIO()
-    q = random.randint(40, 60)
-    img.save(buf, format="JPEG", quality=q, optimize=True)
-    buf.seek(0)
-    return Image.open(buf).convert("RGB")
+def aug_contrast(img):  # +20%
+    return ImageEnhance.Contrast(img).enhance(1.2)
 
-def aug_noise(img):  # 11 mild Gaussian noise
-    arr = np.array(img, dtype=np.int16)
-    sigma = max(3, int(0.02 * 255))  # ~2%
-    noise = np.random.normal(0, sigma, size=arr.shape)
-    out = np.clip(arr + noise, 0, 255).astype(np.uint8)
-    return Image.fromarray(out, mode="RGB")
+def aug_brightness(img):  # +20%
+    return ImageEnhance.Brightness(img).enhance(1.2)
 
-def aug_unsharp(img):  # 12
+def aug_invert(img):
+    return ImageOps.invert(img)
+
+def aug_edges(img):
+    # Edge detect on luminance, then stack to RGB for clarity
+    g = img.convert("L").filter(ImageFilter.FIND_EDGES)
+    return Image.merge("RGB", (g, g, g))
+
+def aug_unsharp(img):
     return img.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
 
-
+# Curated list (you can reorder as you like)
 AUGS = [
-    ("Horizontal Flip", aug_flip_h),
-    ("Rotate 15°", aug_rotate_15),
-    ("Central Crop + Resize", aug_center_zoom),
-    ("Perspective Warp", aug_perspective),
-    ("Brightness +20%", aug_brightness),
-    ("Contrast +20%", aug_contrast),
-    ("Saturation +25%", aug_saturation),
-    ("Hue +12°", aug_hue_shift),
-    ("Gaussian Blur", aug_gaussian_blur),
-    ("JPEG Crunch", aug_jpeg_crunch),
-    ("Gaussian Noise", aug_noise),
-    ("Unsharp Mask", aug_unsharp),
+    ("Horizontal Flip",       aug_flip_h),
+    ("Vertical Flip",         aug_flip_v),
+    ("Rotate +45°",           aug_rotate_45),
+    ("Rotate +90°",           aug_rotate_90),
+    ("Translate (shift)",     aug_translate),
+    ("Center Crop + Resize",  aug_center_zoom),
+
+    ("Grayscale",             aug_grayscale),
+    ("Red Channel Only",      aug_red_channel),
+    ("Green Channel Only",    aug_green_channel),
+    ("Blue Channel Only",     aug_blue_channel),
+
+    ("Hue +12°",              aug_hue_shift),
+    ("Saturation +25%",       aug_saturation),
+    ("Contrast +20%",         aug_contrast),
+    ("Brightness +20%",       aug_brightness),
+
+    ("Invert Colors",         aug_invert),
+    ("Edge Detect",           aug_edges),
+
+    # If you still like it:
+    ("Unsharp Mask",          aug_unsharp),
 ]
-
-
 # -------------------------
 # Pipeline
 # -------------------------

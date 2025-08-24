@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ app_name }} • Results</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.06); }
@@ -13,7 +14,6 @@
                   radial-gradient(800px 600px at 60% 80%, #bbf7d0 0%, transparent 50%),
                   #0b1020;
     }
-    .tile:hover .hints { opacity: 1; transform: translateY(0); }
   </style>
 </head>
 <body class="min-h-screen text-slate-100">
@@ -25,46 +25,30 @@
   <main class="container mx-auto px-4">
     <div class="max-w-5xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
       <a href="{{ url_for('index') }}" class="rounded-xl bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold">Try another</a>
-      <div class="flex items-center gap-3">
-        <a href="{{ url_for('download_zip', token=token) }}" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold shadow-lg shadow-emerald-900/30">Download All</a>
-      </div>
+      <a href="{{ url_for('download_zip', token=token) }}" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold shadow-lg shadow-emerald-900/30">Download All</a>
     </div>
 
     <div class="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <!-- Original -->
-      <div class="tile relative overflow-hidden rounded-2xl ring-1 ring-white/10 glass group">
+      <div class="relative overflow-hidden rounded-2xl ring-1 ring-white/10 glass">
         <img src="{{ url_for('static', filename='outputs/' + token + '/' + original_filename) }}" alt="Original" class="w-full h-auto object-cover">
         <div class="absolute top-3 left-3 rounded-lg bg-slate-800/80 px-2.5 py-1 text-xs font-semibold">Original</div>
-        <div class="absolute bottom-0 left-0 right-0 p-3 transition opacity-0 translate-y-3 hints">
-          <div class="rounded-xl bg-black/50 px-3 py-2 text-xs text-slate-200">
-            Baseline for comparisons.
-          </div>
-        </div>
       </div>
 
       {% for item in items %}
-      <div class="tile relative overflow-hidden rounded-2xl ring-1 ring-white/10 glass group">
+      <div class="relative overflow-hidden rounded-2xl ring-1 ring-white/10 glass">
         <img src="{{ url_for('static', filename='outputs/' + token + '/' + item.filename) }}" alt="{{ item.name }}" class="w-full h-auto object-cover">
-        <div class="absolute top-3 left-3 rounded-lg {{ item.verdict_color }} px-2.5 py-1 text-xs font-semibold">{{ item.verdict_label }}</div>
-        <div class="absolute top-3 right-3 rounded-lg bg-slate-800/80 px-2.5 py-1 text-xs">{{ item.name }}</div>
-
-        <div class="absolute bottom-0 left-0 right-0 p-3 transition opacity-0 translate-y-3 hints">
-          <div class="rounded-xl bg-black/55 px-3 py-2 text-xs text-slate-100 space-y-1">
-            {% for h in item.hints %}
-              <div>• {{ h }}</div>
-            {% endfor %}
-          </div>
-        </div>
+        <div class="absolute top-3 right-3 rounded-lg bg-slate-800/80 px-2.5 py-1 text-xs font-semibold">{{ item.name }}</div>
       </div>
       {% endfor %}
     </div>
 
     <section class="max-w-4xl mx-auto mt-10 text-slate-300 text-sm leading-relaxed">
-      <h2 class="text-lg font-semibold mb-2">How to read these labels</h2>
+      <h2 class="text-lg font-semibold mb-2">What you’re seeing</h2>
       <p>
-        We compare each augmented image to the original using distribution shifts (intensity & hue), structure (SSIM), exposure (clipping),
-        brightness/saturation changes, and a sharpness proxy. Instead of numbers, you get quick, human-friendly verdicts.
-        “Good variety — sweet spot” is usually ideal; “Aggressive” can help robustness but check content; “Destructive” likely harms semantics.
+        These transformations mirror the operations covered in class: flips, rotations, translate, crop, grayscale,
+        channel-isolated views (R/G/B), color shifts (hue/saturation), brightness/contrast tweaks, invert, and edge detection.
+        They’re deliberately visual and explanatory — ideal for demos and understanding how pixel spaces behave.
       </p>
     </section>
   </main>
