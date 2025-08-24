@@ -160,6 +160,35 @@ def api_preview(token):
     return send_file(buf, mimetype="image/png")
 
 
+@app.route("/result/<token>", methods=["GET"])
+def result(token):
+    out_dir = os.path.join(OUTPUT_BASE, token)
+    original_path = os.path.join(out_dir, "original.png")
+    if not os.path.exists(original_path):
+        abort(404)
+
+    # Rebuild items from saved files using AUGS naming pattern
+    from utils.image_ops import AUGS
+    items = []
+    for idx, (label, _) in enumerate(AUGS, start=1):
+        fname = f"{idx:02d}_{label.lower().replace(' ', '_').replace('°','deg').replace('+','plus')}.png"
+        fpath = os.path.join(out_dir, fname)
+        if os.path.exists(fpath):
+            items.append({"name": label, "filename": fname, "idx": idx})
+
+    # zip might already exist (created during /augment POST). It's okay if it doesn't.
+    zipfile_name = f"{token}.zip" if os.path.exists(os.path.join(out_dir, f"{token}.zip")) else None
+
+    return render_template(
+        "result.html",
+        app_name=APP_NAME,
+        token=token,
+        original_filename="original.png",
+        items=items,
+        zipfile_name=zipfile_name or f"{token}.zip",
+    )
+
+
 if __name__ == "__main__":
     os.makedirs(OUTPUT_BASE, exist_ok=True)
     # 0.0.0.0 so it works on EC2/public
